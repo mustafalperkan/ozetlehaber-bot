@@ -1,0 +1,26 @@
+name: Haber Botu Calistir
+on:
+  schedule:
+    - cron: '0 * * * *' # Her saat başı çalışır
+  workflow_dispatch: # Manuel çalıştırma butonu ekler
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout kod
+        uses: actions/checkout@v3
+      - name: Python Kur
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Kütüphaneleri Kur
+        run: pip install -r requirements.txt
+      - name: Botu Ateşle
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
+          BLOGGER_CLIENT_ID: ${{ secrets.BLOGGER_CLIENT_ID }}
+          BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
+          BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+        run: python bot.py
