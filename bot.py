@@ -1,33 +1,36 @@
 import os
 import feedparser
-from google import genai
+import requests
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 def run_bot():
     try:
-        # Yeni taze anahtarınla bağlantı kuruyoruz
-        client = genai.Client(api_key=os.environ.get('GEMINI_API_KEY'))
+        # 1. Gemini'ye Kütüphanesiz, Doğrudan İstek Atıyoruz (En Garanti Yol)
+        api_key = os.environ.get('GEMINI_API_KEY')
         
-        # En sorunsuz model ismi
-        model_id = "gemini-1.5-flash"
-
-        # Haber Kaynağı (DonanımHaber)
+        # Haber Kaynağı
         feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
-        if not feed.entries:
-            print("Haber bulunamadı.")
+        entry = feed.entries[0]
+        
+        # Saf HTTP isteği ile Gemini'den özet alalım
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        payload = {
+            "contents": [{
+                "parts": [{"text": f"Aşağıdaki haberi profesyonelce özetle: {entry.title}\n\n{entry.summary}"}]
+            }]
+        }
+        
+        response = requests.post(url, json=payload)
+        res_data = response.json()
+        
+        if "candidates" in res_data:
+            ozet = res_data["candidates"][0]["content"]["parts"][0]["text"]
+        else:
+            print(f"Gemini Hatası: {res_data}")
             return
 
-        entry = feed.entries[0]
-        baslik = entry.title
-        link = entry.link
-        
-        # Gemini ile Özetleme
-        prompt = f"Aşağıdaki haberi profesyonel bir dille özetle: {baslik}\n\nİçerik: {entry.summary}"
-        response = client.models.generate_content(model=model_id, contents=prompt)
-        ozet = response.text
-
-        # Blogger Bağlantısı
+        # 2. Blogger Bağlantısı
         creds = Credentials(
             None,
             refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
@@ -37,14 +40,13 @@ def run_bot():
         )
         service = build('blogger', 'v3', credentials=creds)
 
-        # Blogger'da Paylaşma
         post_data = {
-            'title': baslik,
-            'content': f"{ozet}<br><br>Kaynak: <a href='{link}'>{link}</a>"
+            'title': entry.title,
+            'content': f"{ozet}<br><br>Kaynak: <a href='{entry.link}'>{entry.link}</a>"
         }
 
         service.posts().insert(blogId=os.environ.get('BLOGGER_BLOG_ID'), body=post_data).execute()
-        print(f"BAŞARIYLA PAYLAŞILDI: {baslik}")
+        print(f"MÜJDE! BAŞARIYLA PAYLAŞILDI: {entry.title}")
 
     except Exception as e:
         print(f"HATA OLUŞTU: {e}")
