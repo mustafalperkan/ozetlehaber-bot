@@ -1,21 +1,24 @@
-name: Haber Botu Calistir
+name: Haber Botu Otomatik Calistir
+
 on:
+  schedule:
+    - cron: '0 * * * *' # Her saat başı çalışır
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Kodu Cek
+      - name: Kodlari Cek
         uses: actions/checkout@v3
 
-      - name: Python Hazirla
+      - name: Python Kur
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Kütüphaneleri Kur
-        run: pip install google-genai google-auth google-api-python-client feedparser
+      - name: Kutuphaneleri Yukle
+        run: pip install google-auth google-api-python-client feedparser requests
 
       - name: Botu Calistir
         env:
@@ -25,3 +28,11 @@ jobs:
           BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
           BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
         run: python bot.py
+
+      - name: Hafizayi Kaydet # Aynı haberi tekrar paylaşmamak için dosyayı commit eder
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add son_haber.txt
+          git commit -m "Hafiza guncellendi" || exit 0
+          git push
