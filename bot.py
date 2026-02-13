@@ -19,12 +19,12 @@ def run_bot():
         link = entry.link
         kaynak_site = entry.source.get('title', 'Haber Kaynağı') if hasattr(entry, 'source') else "Haber Kaynağı"
 
-        # 2. Hafıza Kontrolü
+        # 2. Hafıza Kontrolü (Test etmek için şimdilik kapalı tutabilirsin veya dosyayı silebilirsin)
         if os.path.exists("son_haber.txt"):
             with open("son_haber.txt", "r", encoding="utf-8") as f:
                 if f.read().strip() == baslik:
                     print(f"ATLANDI: {baslik}")
-                    return
+                    # return # TEST İÇİN: Şimdilik bu return'ün başına # koyarsan her seferinde paylaşır
 
         # 3. Gemini Model Seçimi
         list_url = f"https://generativelanguage.googleapis.com/v1/models?key={api_key}"
@@ -37,16 +37,17 @@ def run_bot():
 
         # 4. Gemini'den Özet Al
         gen_url = f"https://generativelanguage.googleapis.com/v1/{target_model}:generateContent?key={api_key}"
-        prompt = f"Şu haberi ilgi çekici bir dille özetle: {baslik}. Ayrıca bu haberle ilgili ingilizce tek bir anahtar kelime yaz (Örn: 'car', 'police', 'technology'). Sadece özeti ve en sonda kelimeyi ver."
+        prompt = f"Şu haberi ilgi çekici özetle: {baslik}. Yazı Türkçe olsun."
         
         res_data = requests.post(gen_url, json={"contents": [{"parts": [{"text": prompt}]}]}).json()
-        ozet = res_data["candidates"][0]["content"]["parts"][0]["text"] if "candidates" in res_data else ""
+        ozet = res_data["candidates"][0]["content"]["parts"][0]["text"] if "candidates" in res_data else "Özet çıkarılamadı."
         
-        # 5. Otomatik Resim Bulma (Unsplash Source)
-        # Haberin konusuna göre otomatik resim getirir
-        keyword = baslik.split()[0] # Basitçe ilk kelimeyi anahtar yapalım
-        resim_url = f"https://source.unsplash.com/featured/?{keyword}"
-        resim_html = f"<img src='{resim_url}' style='width:100%; max-height:400px; object-fit:cover; margin-bottom:20px;'><br>"
+        # 5. GARANTİ RESİM (Picsum Photos - Blogger'da en stabil çalışan servis)
+        # Her haber için rastgele ama kaliteli bir haber görseli çeker
+        import random
+        img_id = random.randint(1, 1000)
+        resim_url = f"https://picsum.photos/id/{img_id}/800/450"
+        resim_html = f'<div style="text-align: center;"><img src="{resim_url}" width="100%" style="border-radius:10px; margin-bottom:15px;"></div>'
 
         # 6. Blogger Paylaşım
         creds = Credentials(None, refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
