@@ -17,16 +17,13 @@ def run_bot():
         entry = feed.entries[0]
         baslik = entry.title
         link = entry.link
-        
-        kaynak_site = "Haber Kaynağı"
-        if hasattr(entry, 'source'):
-            kaynak_site = entry.source.get('title', 'Haber Kaynağı')
+        kaynak_site = entry.source.get('title', 'Haber Kaynağı') if hasattr(entry, 'source') else "Haber Kaynağı"
 
         # 2. Hafıza Kontrolü
         if os.path.exists("son_haber.txt"):
             with open("son_haber.txt", "r", encoding="utf-8") as f:
                 if f.read().strip() == baslik:
-                    print(f"ATLANDI (Zaten paylaşıldı): {baslik}")
+                    print(f"ATLANDI: {baslik}")
                     return
 
         # 3. Gemini Model Seçimi
@@ -36,21 +33,22 @@ def run_bot():
         if "models" in list_res:
             for m in list_res["models"]:
                 if "generateContent" in m["supportedGenerationMethods"]:
-                    target_model = m["name"]
-                    break
+                    target_model = m["name"]; break
 
-        # 4. Gemini ile Özet ve Resim
+        # 4. Gemini'den Özet Al
         gen_url = f"https://generativelanguage.googleapis.com/v1/{target_model}:generateContent?key={api_key}"
-        prompt = f"Haber Başlığı: {baslik}. Bu haberi profesyonel bir blog yazısı gibi özetle. Yazının en başına konuyla ilgili bir Unsplash resim linkini <img src='LINK_BURAYA' style='width:100%'> formatında ekle. Yazı Türkçe olsun."
+        prompt = f"Şu haberi ilgi çekici bir dille özetle: {baslik}. Ayrıca bu haberle ilgili ingilizce tek bir anahtar kelime yaz (Örn: 'car', 'police', 'technology'). Sadece özeti ve en sonda kelimeyi ver."
         
-        payload = {"contents": [{"parts": [{"text": prompt}]}]}
-        res_data = requests.post(gen_url, json=payload).json()
+        res_data = requests.post(gen_url, json={"contents": [{"parts": [{"text": prompt}]}]}).json()
+        ozet = res_data["candidates"][0]["content"]["parts"][0]["text"] if "candidates" in res_data else ""
         
-        if "candidates" in res_data:
-            ozet = res_data["candidates"][0]["content"]["parts"][0]["text"]
-        else: return
+        # 5. Otomatik Resim Bulma (Unsplash Source)
+        # Haberin konusuna göre otomatik resim getirir
+        keyword = baslik.split()[0] # Basitçe ilk kelimeyi anahtar yapalım
+        resim_url = f"https://source.unsplash.com/featured/?{keyword}"
+        resim_html = f"<img src='{resim_url}' style='width:100%; max-height:400px; object-fit:cover; margin-bottom:20px;'><br>"
 
-        # 5. Blogger Paylaşım
+        # 6. Blogger Paylaşım
         creds = Credentials(None, refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
                             token_uri="https://oauth2.googleapis.com/token",
                             client_id=os.environ.get('BLOGGER_CLIENT_ID'),
@@ -59,17 +57,16 @@ def run_bot():
 
         post_data = {
             'title': baslik,
-            'content': f"{ozet}<br><br><b>Kaynak:</b> {kaynak_site}<br><a href='{link}'>Haberin Devamı</a>"
+            'content': f"{resim_html}{ozet}<br><br><b>Kaynak:</b> {kaynak_site}<br><a href='{link}'>Haberin Devamı</a>"
         }
         service.posts().insert(blogId=blog_id, body=post_data).execute()
 
-        # 6. Hafızayı Yaz
         with open("son_haber.txt", "w", encoding="utf-8") as f:
             f.write(baslik)
             
-        print(f"BAŞARIYLA PAYLAŞILDI: {baslik}")
+        print(f"RESİMLİ HABER PAYLAŞILDI: {baslik}")
 
-    except Exception as e: print(f"BİR HATA OLDU: {e}")
+    except Exception as e: print(f"HATA: {e}")
 
 if __name__ == "__main__":
     run_bot()
