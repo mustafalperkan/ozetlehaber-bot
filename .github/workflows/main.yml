@@ -18,7 +18,7 @@ jobs:
 
       - name: Kütüphaneleri Kur
         run: |
-          pip install google-generativeai google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client feedparser urllib3<2.0
+          pip install google-generativeai google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client feedparser "urllib3<2.0"
 
       - name: Botu Ateşle
         env:
