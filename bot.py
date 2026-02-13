@@ -6,43 +6,44 @@ from googleapiclient.discovery import build
 
 def run_bot():
     try:
-        # 1. Ayarları Al
         api_key = os.environ.get('GEMINI_API_KEY')
-        blog_id = os.environ.get('BLOGGER_BLOG_ID')
         
-        # 2. Haber Kaynağını Oku (DonanımHaber)
-        feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
-        if not feed.entries:
-            print("Haber bulunamadı.")
-            return
+        # 1. Hangi modele iznimiz olduğunu otomatik bulalım
+        list_url = f"https://generativelanguage.googleapis.com/v1/models?key={api_key}"
+        list_res = requests.get(list_url).json()
         
-        entry = feed.entries[0]
-        baslik = entry.title
-        link = entry.link
-        icerik = entry.summary if hasattr(entry, 'summary') else baslik
+        # Listeden 'flash' içeren en güncel modeli seç
+        target_model = "models/gemini-1.5-flash" # Varsayılan
+        if "models" in list_res:
+            flash_models = [m["name"] for m in list_res["models"] if "flash" in m["name"].lower()]
+            if flash_models:
+                # En uzun isimli olan genelde en güncelidir (ör: flash-latest)
+                target_model = sorted(flash_models, key=len, reverse=True)[0]
+        
+        print(f"Sistem tarafından seçilen model: {target_model}")
 
-        # 3. Gemini'ye Doğrudan İstek At (V1 Kararlı Sürüm)
-        # v1beta yerine v1 kullanarak 404 hatasını bypass ediyoruz
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
+        # 2. Haber Kaynağı
+        feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
+        entry = feed.entries[0]
         
+        # 3. Özet İsteği (Artık model ismini dinamik gönderiyoruz)
+        gen_url = f"https://generativelanguage.googleapis.com/v1/{target_model}:generateContent?key={api_key}"
         payload = {
             "contents": [{
-                "parts": [{"text": f"Aşağıdaki haberi profesyonel bir dille kısa özetle. Haberin linkini de belirt: {baslik}\n\nİçerik: {icerik}"}]
+                "parts": [{"text": f"Aşağıdaki haberi özetle: {entry.title}\n\n{entry.summary}"}]
             }]
         }
         
-        response = requests.post(url, json=payload)
+        response = requests.post(gen_url, json=payload)
         res_data = response.json()
         
-        # Yanıt Kontrolü
         if "candidates" in res_data:
             ozet = res_data["candidates"][0]["content"]["parts"][0]["text"]
         else:
-            # Eğer hala hata verirse ne olduğunu tam görelim
-            print(f"Gemini Cevap Hatası: {res_data}")
+            print(f"Gemini Hatası: {res_data}")
             return
 
-        # 4. Blogger Bağlantısı ve Paylaşım
+        # 4. Blogger Paylaşım
         creds = Credentials(
             None,
             refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
@@ -53,15 +54,15 @@ def run_bot():
         service = build('blogger', 'v3', credentials=creds)
 
         post_data = {
-            'title': baslik,
-            'content': f"{ozet}<br><br>Kaynak: <a href='{link}'>{link}</a>"
+            'title': entry.title,
+            'content': f"{ozet}<br><br>Kaynak: <a href='{entry.link}'>{entry.link}</a>"
         }
 
-        service.posts().insert(blogId=blog_id, body=post_data).execute()
-        print(f"MÜJDE! BAŞARIYLA PAYLAŞILDI: {baslik}")
+        service.posts().insert(blogId=os.environ.get('BLOGGER_BLOG_ID'), body=post_data).execute()
+        print(f"BAŞARIYLA PAYLAŞILDI: {entry.title}")
 
     except Exception as e:
-        print(f"SİSTEM HATASI: {e}")
+        print(f"HATA: {e}")
 
 if __name__ == "__main__":
     run_bot()
