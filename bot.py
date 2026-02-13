@@ -45,23 +45,15 @@ def run_bot():
         anahtar = "news"
         if "KEY:" in raw_text:
             ozet_part = raw_text.split("KEY:")[0].strip()
-            anahtar = raw_text.split("KEY:")[1].strip().replace("*","").lower()
+            anahtar = raw_text.split("KEY:")[1].strip().replace("*","").lower().split()[0]
         else:
             ozet_part = raw_text
 
-        # 5. GARANTİ RESİM YOLU (Blogger'ın En Sevdiği Format)
-        # Unsplash'in doğrudan CDN linkini kullanıyoruz
-        resim_url = f"https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80" # Varsayılan
-        if anahtar:
-            resim_url = f"https://source.unsplash.com/featured/800x450?{anahtar}"
-            # Blogger yönlendirmeyi sevmediği için linki bir kez çözüyoruz
-            try:
-                r = requests.get(resim_url, timeout=5)
-                if r.status_code == 200:
-                    resim_url = r.url # Yönlendirilmiş gerçek resim linkini al
-            except: pass
-
-        resim_html = f'<div style="text-align: center; margin-bottom: 20px;"><img src="{resim_url}" style="width: 100%; max-width: 800px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"></div>'
+        # 5. GARANTİ RESİM (LoremFlickr - .jpg Uzantılı ve Blogger Dostu)
+        # Bu linkin sonuna .jpg ekleyerek Blogger'ı ikna ediyoruz
+        resim_url = f"https://loremflickr.com/800/450/{anahtar}/all.jpg"
+        
+        resim_html = f'<div style="text-align: center; margin-bottom: 20px;"><img src="{resim_url}" alt="{anahtar}" style="width: 100%; max-width: 800px; border-radius: 12px;"></div>'
 
         # 6. Blogger Paylaşım
         creds = Credentials(None, refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
