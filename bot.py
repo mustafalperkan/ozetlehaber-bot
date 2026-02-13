@@ -6,14 +6,17 @@ from googleapiclient.discovery import build
 
 def run_bot():
     try:
-        # Yeni Nesil Gemini Kurulumu - HTTP_OPTIONS ekleyerek sürüme müdahale ediyoruz
+        # Yeni Nesil Gemini Kurulumu
+        # api_version='v1' ekleyerek beta sorununu kökten çözüyoruz
         client = genai.Client(
             api_key=os.environ.get('GEMINI_API_KEY'),
-            http_options={'api_version': 'v1'} # Beta yerine kararlı sürümü zorla
+            http_options={'api_version': 'v1'}
         )
-        model_id = "gemini-1.5-flash" # Ya da "gemini-1.5-flash-8b"
+        
+        # En uyumlu model ismi
+        model_id = "gemini-1.5-flash"
 
-        # Haber Kaynağı (RSS)
+        # Haber Kaynağı (RSS) - DonanımHaber
         feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
         if not feed.entries:
             print("Haber bulunamadı.")
@@ -22,10 +25,15 @@ def run_bot():
         entry = feed.entries[0]
         baslik = entry.title
         link = entry.link
+        icerik = entry.summary if hasattr(entry, 'summary') else ""
 
-        # Yeni Nesil Gemini ile Özet Oluşturma
-        prompt = f"Aşağıdaki haberi 30 saniyede okunacak şekilde özetle. Link: {link}\n\nİçerik: {entry.summary}"
-        response = client.models.generate_content(model=model_id, contents=prompt)
+        # Gemini ile Özet Oluşturma
+        prompt = f"Aşağıdaki haberi profesyonel bir dille, kısa ve öz şekilde özetle. Haberin linki: {link}\n\nİçerik: {icerik}"
+        
+        response = client.models.generate_content(
+            model=model_id,
+            contents=prompt
+        )
         ozet = response.text
 
         # Blogger Bağlantısı
