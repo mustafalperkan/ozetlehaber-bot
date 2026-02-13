@@ -6,9 +6,12 @@ from googleapiclient.discovery import build
 
 def run_bot():
     try:
-        # Yeni Nesil Gemini Kurulumu
-        client = genai.Client(api_key=os.environ.get('GEMINI_API_KEY'))
-        model_id = "gemini-1.5-flash-8b"
+        # Yeni Nesil Gemini Kurulumu - HTTP_OPTIONS ekleyerek sürüme müdahale ediyoruz
+        client = genai.Client(
+            api_key=os.environ.get('GEMINI_API_KEY'),
+            http_options={'api_version': 'v1'} # Beta yerine kararlı sürümü zorla
+        )
+        model_id = "gemini-1.5-flash" # Ya da "gemini-1.5-flash-8b"
 
         # Haber Kaynağı (RSS)
         feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
