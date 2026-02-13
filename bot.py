@@ -6,31 +6,43 @@ from googleapiclient.discovery import build
 
 def run_bot():
     try:
-        # 1. Gemini'ye Kütüphanesiz, Doğrudan İstek Atıyoruz (En Garanti Yol)
+        # 1. Ayarları Al
         api_key = os.environ.get('GEMINI_API_KEY')
+        blog_id = os.environ.get('BLOGGER_BLOG_ID')
         
-        # Haber Kaynağı
+        # 2. Haber Kaynağını Oku (DonanımHaber)
         feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
-        entry = feed.entries[0]
+        if not feed.entries:
+            print("Haber bulunamadı.")
+            return
         
-        # Saf HTTP isteği ile Gemini'den özet alalım
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        entry = feed.entries[0]
+        baslik = entry.title
+        link = entry.link
+        icerik = entry.summary if hasattr(entry, 'summary') else baslik
+
+        # 3. Gemini'ye Doğrudan İstek At (V1 Kararlı Sürüm)
+        # v1beta yerine v1 kullanarak 404 hatasını bypass ediyoruz
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
+        
         payload = {
             "contents": [{
-                "parts": [{"text": f"Aşağıdaki haberi profesyonelce özetle: {entry.title}\n\n{entry.summary}"}]
+                "parts": [{"text": f"Aşağıdaki haberi profesyonel bir dille kısa özetle. Haberin linkini de belirt: {baslik}\n\nİçerik: {icerik}"}]
             }]
         }
         
         response = requests.post(url, json=payload)
         res_data = response.json()
         
+        # Yanıt Kontrolü
         if "candidates" in res_data:
             ozet = res_data["candidates"][0]["content"]["parts"][0]["text"]
         else:
-            print(f"Gemini Hatası: {res_data}")
+            # Eğer hala hata verirse ne olduğunu tam görelim
+            print(f"Gemini Cevap Hatası: {res_data}")
             return
 
-        # 2. Blogger Bağlantısı
+        # 4. Blogger Bağlantısı ve Paylaşım
         creds = Credentials(
             None,
             refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
@@ -41,15 +53,15 @@ def run_bot():
         service = build('blogger', 'v3', credentials=creds)
 
         post_data = {
-            'title': entry.title,
-            'content': f"{ozet}<br><br>Kaynak: <a href='{entry.link}'>{entry.link}</a>"
+            'title': baslik,
+            'content': f"{ozet}<br><br>Kaynak: <a href='{link}'>{link}</a>"
         }
 
-        service.posts().insert(blogId=os.environ.get('BLOGGER_BLOG_ID'), body=post_data).execute()
-        print(f"MÜJDE! BAŞARIYLA PAYLAŞILDI: {entry.title}")
+        service.posts().insert(blogId=blog_id, body=post_data).execute()
+        print(f"MÜJDE! BAŞARIYLA PAYLAŞILDI: {baslik}")
 
     except Exception as e:
-        print(f"HATA OLUŞTU: {e}")
+        print(f"SİSTEM HATASI: {e}")
 
 if __name__ == "__main__":
     run_bot()
