@@ -17,32 +17,41 @@ def run_bot():
         entry = feed.entries[0]
         baslik = entry.title
         link = entry.link
-        kaynak_site = entry.source.text if hasattr(entry, 'source') else "Haber Kaynağı"
+        
+        # Kaynak ismini daha güvenli alalım
+        kaynak_site = "Haber Kaynağı"
+        if hasattr(entry, 'source'):
+            kaynak_site = entry.source.get('title', 'Haber Kaynağı')
 
-        # 2. Hafıza Kontrolü (Aynı haberi tekrar paylaşmamak için)
+        # 2. Hafıza Kontrolü
         if os.path.exists("son_haber.txt"):
-            with open("son_haber.txt", "r") as f:
+            with open("son_haber.txt", "r", encoding="utf-8") as f:
                 if f.read().strip() == baslik:
-                    print(f"BU HABER ZATEN PAYLAŞILDI: {baslik}")
+                    print(f"ATLANDI (Zaten paylaşıldı): {baslik}")
                     return
 
-        # 3. Gemini Modelini Seç
+        # 3. Gemini Model Seçimi
         list_url = f"https://generativelanguage.googleapis.com/v1/models?key={api_key}"
         list_res = requests.get(list_url).json()
         target_model = "models/gemini-1.5-flash"
         if "models" in list_res:
             for m in list_res["models"]:
                 if "generateContent" in m["supportedGenerationMethods"]:
-                    target_model = m["name"]; break
+                    target_model = m["name"]
+                    break
 
-        # 4. Gemini ile İçerik ve Resim Linki Oluşturma
+        # 4. Gemini ile Özet ve Resim
         gen_url = f"https://generativelanguage.googleapis.com/v1/{target_model}:generateContent?key={api_key}"
-        prompt = f"Haber: {baslik}. Bu haberi profesyonel özetle. Ayrıca haberle ilgili konuyu temsil eden geniş bir görselin Unsplash linkini (örneğin teknoloji ise https://images.unsplash.com/photo-1518770660439-4636190af475) içeriğin en başına <img> etiketiyle ekle."
+        prompt = f"Haber Başlığı: {baslik}. Bu haberi profesyonel bir blog yazısı gibi özetle. En başa konuyla ilgili rastgele bir Unsplash resim linkini <img> etiketiyle koy."
         
-        res_data = requests.post(gen_url, json={"contents": [{"parts": [{"text": prompt}]}]}).json()
+        payload = {"contents": [{"parts": [{"text": prompt}]}]}
+        res_data = requests.post(gen_url, json=payload).json()
+        
         if "candidates" in res_data:
             ozet = res_data["candidates"][0]["content"]["parts"][0]["text"]
-        else: return
+        else:
+            print("Gemini yanıt veremedi.")
+            return
 
         # 5. Blogger Paylaşım
         creds = Credentials(None, refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
@@ -57,13 +66,14 @@ def run_bot():
         }
         service.posts().insert(blogId=blog_id, body=post_data).execute()
 
-        # 6. Hafızaya Kaydet
-        with open("son_haber.txt", "w") as f:
+        # 6. Hafızayı Yaz
+        with open("son_haber.txt", "w", encoding="utf-8") as f:
             f.write(baslik)
             
-        print(f"RESİMLİ HABER PAYLAŞILDI: {baslik}")
+        print(f"BAŞARIYLA PAYLAŞILDI: {baslik}")
 
-    except Exception as e: print(f"HATA: {e}")
+    except Exception as e:
+        print(f"BİR HATA OLDU: {e}")
 
 if __name__ == "__main__":
     run_bot()
