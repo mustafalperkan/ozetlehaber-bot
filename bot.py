@@ -8,7 +8,7 @@ def run_bot():
     try:
         # Yeni Nesil Gemini Kurulumu
         client = genai.Client(api_key=os.environ.get('GEMINI_API_KEY'))
-        model_id = "gemini-1.5-flash"
+        model_id = "gemini-1.5-flash-8b"
 
         # Haber Kaynağı (RSS)
         feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
