@@ -18,7 +18,6 @@ def run_bot():
         baslik = entry.title
         link = entry.link
         
-        # Kaynak ismini daha güvenli alalım
         kaynak_site = "Haber Kaynağı"
         if hasattr(entry, 'source'):
             kaynak_site = entry.source.get('title', 'Haber Kaynağı')
@@ -42,16 +41,14 @@ def run_bot():
 
         # 4. Gemini ile Özet ve Resim
         gen_url = f"https://generativelanguage.googleapis.com/v1/{target_model}:generateContent?key={api_key}"
-        prompt = f"Haber Başlığı: {baslik}. Bu haberi profesyonel bir blog yazısı gibi özetle. En başa konuyla ilgili rastgele bir Unsplash resim linkini <img> etiketiyle koy."
+        prompt = f"Haber Başlığı: {baslik}. Bu haberi profesyonel bir blog yazısı gibi özetle. Yazının en başına konuyla ilgili bir Unsplash resim linkini <img src='LINK_BURAYA' style='width:100%'> formatında ekle. Yazı Türkçe olsun."
         
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
         res_data = requests.post(gen_url, json=payload).json()
         
         if "candidates" in res_data:
             ozet = res_data["candidates"][0]["content"]["parts"][0]["text"]
-        else:
-            print("Gemini yanıt veremedi.")
-            return
+        else: return
 
         # 5. Blogger Paylaşım
         creds = Credentials(None, refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
@@ -72,8 +69,7 @@ def run_bot():
             
         print(f"BAŞARIYLA PAYLAŞILDI: {baslik}")
 
-    except Exception as e:
-        print(f"BİR HATA OLDU: {e}")
+    except Exception as e: print(f"BİR HATA OLDU: {e}")
 
 if __name__ == "__main__":
     run_bot()
