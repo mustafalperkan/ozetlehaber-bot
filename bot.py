@@ -18,14 +18,14 @@ def run_bot():
         link = entry.link
         kaynak_site = entry.source.get('title', 'Haber Kaynağı') if hasattr(entry, 'source') else "Haber Kaynağı"
 
-        # 2. Hafıza
+        # 2. Hafıza (Test için gerekirse son_haber.txt dosyasını manuel sil)
         if os.path.exists("son_haber.txt"):
             with open("son_haber.txt", "r", encoding="utf-8") as f:
                 if f.read().strip() == baslik:
                     print(f"ATLANDI: {baslik}")
                     return
 
-        # 3. Gemini (Özet + Arama Terimi)
+        # 3. Gemini (Detaylı Özet + Tek Kelime)
         list_url = f"https://generativelanguage.googleapis.com/v1/models?key={api_key}"
         list_res = requests.get(list_url).json()
         target_model = "models/gemini-1.5-flash"
@@ -35,36 +35,48 @@ def run_bot():
                     target_model = m["name"]; break
 
         gen_url = f"https://generativelanguage.googleapis.com/v1/{target_model}:generateContent?key={api_key}"
-        prompt = f"Haber: {baslik}. Bu haberi kısa özetle ve sonuna sadece İngilizce bir arama kelimesi ekle (Örn: 'police', 'car', 'technology'). Format: OZET: ... KELIME: ..."
+        prompt = (
+            f"Haber: {baslik}. \n"
+            "GÖREV: \n"
+            "1. Bu haberi en az 3-4 cümlelik, detaylı ve profesyonel bir dille özetle.\n"
+            "2. En sona 'KELIME:' yazıp yanına konuyla ilgili TEK BİR İngilizce kelime ekle (Örn: crime, tech, car).\n"
+            "Yanıtın mutlaka 'ÖZET:' ile başlasın."
+        )
         
         res_data = requests.post(gen_url, json={"contents": [{"parts": [{"text": prompt}]}]}).json()
         raw = res_data["candidates"][0]["content"]["parts"][0]["text"]
         
-        ozet = raw.split("OZET:")[1].split("KELIME:")[0].strip() if "OZET:" in raw else raw
-        search_term = raw.split("KELIME:")[1].strip().lower().replace(".","") if "KELIME:" in raw else "news"
+        ozet = raw.split("ÖZET:")[1].split("KELIME:")[0].strip() if "ÖZET:" in raw else raw
+        search_term = raw.split("KELIME:")[1].strip().lower().replace(".","").split()[0] if "KELIME:" in raw else "news"
 
-        # 5. NOKTA ATIŞI RESİM (Blogger'ın En Sevdiği Servis)
-        # Kelimeye göre doğrudan .jpg uzantılı resim çeker
-        resim_url = f"https://loremflickr.com/800/450/{search_term}/all.jpg"
+        # 4. GARANTİ RESİM (Unsplash Direct Link)
+        # Blogger'ın sevdiği doğrudan CDN formatı
+        resim_url = f"https://images.unsplash.com/photo-1585007600263-ad1f301f2c27?auto=format&fit=crop&w=800&q=80" # Genel Haber Resmi
         
-        resim_html = f'<div style="text-align: center; margin-bottom: 20px;"><img src="{resim_url}" border="0" width="100%" style="border-radius:15px; max-width:800px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);"></div>'
+        # Kelimeye göre Unsplash'ten rastgele ama doğrudan link çekmeye çalışalım
+        if search_term:
+            resim_url = f"https://loremflickr.com/800/450/{search_term}/all.jpg"
 
-        # 6. Blogger Paylaşım
+        resim_html = f'<div class="separator" style="clear: both; text-align: center;"><img border="0" src="{resim_url}" width="100%" style="border-radius:12px; max-width:800px;"/></div><br/>'
+
+        # 5. Blogger Paylaşım
         creds = Credentials(None, refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
                             token_uri="https://oauth2.googleapis.com/token",
                             client_id=os.environ.get('BLOGGER_CLIENT_ID'),
                             client_secret=os.environ.get('BLOGGER_CLIENT_SECRET'))
         service = build('blogger', 'v3', credentials=creds)
 
-        full_content = f"{resim_html}<p style='font-size: 1.1em;'>{ozet}</p><br><b>Kaynak:</b> {kaynak_site}<br><a href='{link}'>Haberin Devamı →</a>"
+        full_content = f"{resim_html}<div style='font-family: Arial, sans-serif; line-height: 1.8; font-size: 16px;'>{ozet}</div><br/><b>Kaynak:</b> {kaynak_site}<br/><a href='{link}' style='color:#d93025; font-weight:bold;'>Haberin Devamı İçin Tıklayın...</a>"
+        
         service.posts().insert(blogId=blog_id, body={'title': baslik, 'content': full_content}).execute()
 
         with open("son_haber.txt", "w", encoding="utf-8") as f:
             f.write(baslik)
             
-        print(f"PAYLAŞILDI: {baslik} (Aranan: {search_term})")
+        print(f"İŞLEM TAMAM: {baslik} (Kelime: {search_term})")
 
-    except Exception as e: print(f"HATA: {e}")
+    except Exception as e:
+        print(f"HATA OLUŞTU: {e}")
 
 if __name__ == "__main__":
     run_bot()
