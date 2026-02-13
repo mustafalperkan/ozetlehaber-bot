@@ -1,8 +1,8 @@
 name: Haber Botu Calistir
 on:
   schedule:
-    - cron: '0 * * * *' # Her saat başı çalışır
-  workflow_dispatch: # Manuel çalıştırma butonu ekler
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -10,12 +10,16 @@ jobs:
     steps:
       - name: Checkout kod
         uses: actions/checkout@v3
+
       - name: Python Kur
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'
+
       - name: Kütüphaneleri Kur
-        run: pip install -r requirements.txt
+        run: |
+          pip install google-generativeai google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client feedparser urllib3<2.0
+
       - name: Botu Ateşle
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
