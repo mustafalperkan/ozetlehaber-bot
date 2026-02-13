@@ -15,7 +15,7 @@ def run_bot():
     try:
         # Gemini Kurulumu
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
 
         # Haber Kaynağı (RSS)
         feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
