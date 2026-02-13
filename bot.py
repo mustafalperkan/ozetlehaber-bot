@@ -8,30 +8,32 @@ def run_bot():
     try:
         api_key = os.environ.get('GEMINI_API_KEY')
         
-        # 1. Hangi modele iznimiz olduğunu otomatik bulalım
+        # 1. Google'a soruyoruz: "Bana hangi modelleri kullanma izni verdin?"
         list_url = f"https://generativelanguage.googleapis.com/v1/models?key={api_key}"
         list_res = requests.get(list_url).json()
         
-        # Listeden 'flash' içeren en güncel modeli seç
-        target_model = "models/gemini-1.5-flash" # Varsayılan
+        # 2. Listeden çalışan ilk modeli bulalım (Hata payını sıfırlıyoruz)
+        target_model = ""
         if "models" in list_res:
-            flash_models = [m["name"] for m in list_res["models"] if "flash" in m["name"].lower()]
-            if flash_models:
-                # En uzun isimli olan genelde en güncelidir (ör: flash-latest)
-                target_model = sorted(flash_models, key=len, reverse=True)[0]
+            for m in list_res["models"]:
+                if "generateContent" in m["supportedGenerationMethods"]:
+                    target_model = m["name"]
+                    break
         
-        print(f"Sistem tarafından seçilen model: {target_model}")
+        if not target_model:
+            print("Uygun model bulunamadı, liste:", list_res)
+            return
 
-        # 2. Haber Kaynağı
+        print(f"Sistem senin için en uygun modeli buldu ve seçti: {target_model}")
+
+        # 3. Haber Kaynağı
         feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
         entry = feed.entries[0]
         
-        # 3. Özet İsteği (Artık model ismini dinamik gönderiyoruz)
+        # 4. Özet İsteği
         gen_url = f"https://generativelanguage.googleapis.com/v1/{target_model}:generateContent?key={api_key}"
         payload = {
-            "contents": [{
-                "parts": [{"text": f"Aşağıdaki haberi özetle: {entry.title}\n\n{entry.summary}"}]
-            }]
+            "contents": [{"parts": [{"text": f"Aşağıdaki haberi özetle: {entry.title}\n\n{entry.summary}"}]}]
         }
         
         response = requests.post(gen_url, json=payload)
@@ -43,7 +45,7 @@ def run_bot():
             print(f"Gemini Hatası: {res_data}")
             return
 
-        # 4. Blogger Paylaşım
+        # 5. Blogger Paylaşım
         creds = Credentials(
             None,
             refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
@@ -59,7 +61,7 @@ def run_bot():
         }
 
         service.posts().insert(blogId=os.environ.get('BLOGGER_BLOG_ID'), body=post_data).execute()
-        print(f"BAŞARIYLA PAYLAŞILDI: {entry.title}")
+        print(f"ZAFER! BAŞARIYLA PAYLAŞILDI: {entry.title}")
 
     except Exception as e:
         print(f"HATA: {e}")
