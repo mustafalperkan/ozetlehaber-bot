@@ -15,7 +15,7 @@ jobs:
           python-version: '3.11'
 
       - name: Kütüphaneleri Kur
-        run: pip install google-generativeai google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client feedparser
+        run: pip install google-genai google-auth google-api-python-client feedparser
 
       - name: Botu Calistir
         env:
