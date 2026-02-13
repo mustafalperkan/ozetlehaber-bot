@@ -29,10 +29,12 @@ jobs:
           BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
         run: python bot.py
 
-      - name: Hafizayi Kaydet # Aynı haberi tekrar paylaşmamak için dosyayı commit eder
+      - name: Hafizayi Kaydet
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          # Eğer dosya yoksa hata vermemesi için boş bir tane oluşturuyoruz
+          touch son_haber.txt
           git add son_haber.txt
           git commit -m "Hafiza guncellendi" || exit 0
           git push
