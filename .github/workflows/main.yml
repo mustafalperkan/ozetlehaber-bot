@@ -1,26 +1,23 @@
 name: Haber Botu Calistir
 on:
-  schedule:
-    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout kod
+      - name: Kodu Cek
         uses: actions/checkout@v3
 
-      - name: Python Kur
+      - name: Python Hazirla
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Kütüphaneleri Kur
-        run: |
-          pip install google-generativeai google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client feedparser "urllib3<2.0"
+        run: pip install google-generativeai google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client feedparser
 
-      - name: Botu Ateşle
+      - name: Botu Calistir
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
