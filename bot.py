@@ -6,38 +6,28 @@ from googleapiclient.discovery import build
 
 def run_bot():
     try:
+        # Yeni taze anahtarınla bağlantı kuruyoruz
         client = genai.Client(api_key=os.environ.get('GEMINI_API_KEY'))
         
-        # ELİNDEKİ MODELLERİ LİSTELE VE ÇALIŞANI SEÇ
-        available_models = [m.name for m in client.models.list()]
-        print(f"Erişilebilir modeller: {available_models}")
-        
-        # En güvenli modellerden birini seç (Listerden gelen isme göre)
-        model_id = ""
-        for m in ["gemini-1.5-flash", "gemini-pro", "gemini-1.0-pro"]:
-            # Model isminin başında 'models/' olup olmadığını kontrol ederek eşleştir
-            if any(m in name for name in available_models):
-                model_id = next(name for name in available_models if m in name)
-                break
-        
-        if not model_id:
-            print("Uygun model bulunamadı!")
+        # En sorunsuz model ismi
+        model_id = "gemini-1.5-flash"
+
+        # Haber Kaynağı (DonanımHaber)
+        feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
+        if not feed.entries:
+            print("Haber bulunamadı.")
             return
 
-        print(f"Seçilen model: {model_id}")
-
-        # Haber Kaynağı
-        feed = feedparser.parse("https://www.donanimhaber.com/rss/tum/")
         entry = feed.entries[0]
+        baslik = entry.title
+        link = entry.link
         
-        # Gemini ile Özet (Prompt kısmını çok sadeleştirdim)
-        response = client.models.generate_content(
-            model=model_id,
-            contents=f"Özetle: {entry.title} - {entry.summary}"
-        )
+        # Gemini ile Özetleme
+        prompt = f"Aşağıdaki haberi profesyonel bir dille özetle: {baslik}\n\nİçerik: {entry.summary}"
+        response = client.models.generate_content(model=model_id, contents=prompt)
         ozet = response.text
 
-        # Blogger
+        # Blogger Bağlantısı
         creds = Credentials(
             None,
             refresh_token=os.environ.get('BLOGGER_REFRESH_TOKEN'),
@@ -47,13 +37,14 @@ def run_bot():
         )
         service = build('blogger', 'v3', credentials=creds)
 
+        # Blogger'da Paylaşma
         post_data = {
-            'title': entry.title,
-            'content': f"{ozet}<br><br>Kaynak: <a href='{entry.link}'>{entry.link}</a>"
+            'title': baslik,
+            'content': f"{ozet}<br><br>Kaynak: <a href='{link}'>{link}</a>"
         }
 
         service.posts().insert(blogId=os.environ.get('BLOGGER_BLOG_ID'), body=post_data).execute()
-        print(f"BAŞARIYLA PAYLAŞILDI: {entry.title}")
+        print(f"BAŞARIYLA PAYLAŞILDI: {baslik}")
 
     except Exception as e:
         print(f"HATA OLUŞTU: {e}")
